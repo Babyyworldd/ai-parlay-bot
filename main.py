@@ -65,3 +65,18 @@ print("Bot is live and waiting to send picks at 11:00 AM daily...")
 while True:
     schedule.run_pending()
     time.sleep(1)
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return "AI Parlay Bot is running!"
+
+def run_bot():
+    send_daily_picks()  # Replace with the main function that starts your bot
+
+if __name__ == '__main__':
+    threading.Thread(target=run_bot).start()
+    app.run(host='0.0.0.0', port=8080)
