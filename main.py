@@ -89,4 +89,4 @@ if __name__ == '__main__':
     # Start task scheduler in another thread
     threading.Thread(target=run_scheduler).start()
 
-    print("Bot is live and waiting to send picks at 11:00 AM daily...")
+    print("Bot is live and waiting to send picks at 11:00 AM daily..y.")
