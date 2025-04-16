@@ -1,3 +1,5 @@
+from flask import Flask
+import threading
 import requests
 import random
 import schedule
@@ -12,7 +14,11 @@ api_key = os.getenv("API_KEY")
 
 odds_url = f'https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?regions=us&markets=h2h&oddsFormat=decimal&apiKey={api_key}'
 send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
+app = Flask(__name__)
 
+@app.route('/')
+def home():
+    return "AI Parlay Bot is running"
 def send_daily_picks():
     print(f"Sending AI picks at {datetime.now()}...")
     response = requests.get(odds_url)
@@ -80,3 +86,13 @@ def run_bot():
 if __name__ == '__main__':
     threading.Thread(target=run_bot).start()
     app.run(host='0.0.0.0', port=8080)
+def run_flask():
+    app.run(host='0.0.0.0', port=10000)
+
+if __name__ == '__main__':
+    # Start the Flask server in a separate thread
+    threading.Thread(target=run_flask).start()
+
+    # Start your bot logic here (example):
+    from your_telegram_bot_module import start_bot
+    start_bot()
