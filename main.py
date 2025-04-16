@@ -19,6 +19,8 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return "AI Parlay Bot is running"
+
+# Function to send daily picks
 def send_daily_picks():
     print(f"Sending AI picks at {datetime.now()}...")
     response = requests.get(odds_url)
@@ -56,6 +58,7 @@ def send_daily_picks():
         )
         requests.post(send_url, data={'chat_id': chat_id, 'text': msg, 'parse_mode': 'Markdown'})
 
+    # Create the parlay message
     parlay_legs = [f"⚾️ {p['pick']} ({p['odds']})" for p in picks]
     parlay_odds = round((picks[0]['odds'] * picks[1]['odds'] * picks[2]['odds']) - 1, 2)
     parlay_msg = (
@@ -66,33 +69,24 @@ def send_daily_picks():
     )
     requests.post(send_url, data={'chat_id': chat_id, 'text': parlay_msg, 'parse_mode': 'Markdown'})
 
+# Schedule task to run daily at 11:00 AM
 schedule.every().day.at("11:00").do(send_daily_picks)
-print("Bot is live and waiting to send picks at 11:00 AM daily...")
-while True:
-    schedule.run_pending()
-    time.sleep(1)
-from flask import Flask
-import threading
 
-app = Flask(__name__)
-
-@app.route('/')
-def index():
-    return "AI Parlay Bot is running!"
-
-def run_bot():
-    send_daily_picks()  # Replace with the main function that starts your bot
-
-if __name__ == '__main__':
-    threading.Thread(target=run_bot).start()
-    app.run(host='0.0.0.0', port=8080)
+# Flask route to keep the server alive
 def run_flask():
-    app.run(host='0.0.0.0', port=10000)
+    app.run(host='0.0.0.0', port=8080)
+
+# Background thread for task scheduler
+def run_scheduler():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 if __name__ == '__main__':
-    # Start the Flask server in a separate thread
+    # Start Flask in a separate thread
     threading.Thread(target=run_flask).start()
 
-    # Start your bot logic here (example):
-    from your_telegram_bot_module import start_bot
-    start_bot()
+    # Start task scheduler in another thread
+    threading.Thread(target=run_scheduler).start()
+
+    print("Bot is live and waiting to send picks at 11:00 AM daily...")
