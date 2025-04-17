@@ -6,6 +6,7 @@ import schedule
 import time
 from datetime import datetime
 import os
+import subprocess  # Added for curl functionality
 
 # Load from environment variables
 bot_token = os.getenv("BOT_TOKEN")
@@ -24,7 +25,14 @@ def home():
 def send_daily_picks():
     print(f"Sending AI picks at {datetime.now()}...")
     response = requests.get(odds_url)
-    games = response.json()
+    print("ODDS API STATUS:", response.status_code)
+    print("ODDS API RESPONSE:", response.text)
+
+    try:
+        games = response.json()
+    except Exception as e:
+        print("Error parsing JSON from odds API:", e)
+        return
 
     picks = []
     for game in games:
@@ -74,7 +82,8 @@ schedule.every().day.at("11:00").do(send_daily_picks)
 
 # Flask route to keep the server alive
 def run_flask():
-    app.run(host='0.0.0.0', port=8080)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
 
 # Background thread for task scheduler
 def run_scheduler():
@@ -82,11 +91,38 @@ def run_scheduler():
         schedule.run_pending()
         time.sleep(1)
 
-if __name__ == '__main__':
-    # Start Flask in a separate thread
-    threading.Thread(target=run_flask).start()
+# Optional: Function to demonstrate sending JSON with cURL
+def send_json_with_curl():
+    api_endpoint = "https://api.example.com/endpoint"
+    json_payload = '{"key1": "value1", "key2": "value2"}'
+    
+    headers = [
+        "Content-Type: application/json",
+        "Authorization: Bearer YOUR_ACCESS_TOKEN"  # Replace with your token
+    ]
 
-    # Start task scheduler in another thread
+    curl_command = [
+        "curl",
+        "-X", "POST",
+        "-H", headers[0],
+        "-H", headers[1],
+        "-d", json_payload,
+        api_endpoint
+    ]
+
+    try:
+        result = subprocess.run(curl_command, check=True, text=True, capture_output=True)
+        print("cURL Response:")
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print("Error executing cURL command:")
+        print(e.stderr)
+
+if __name__ == '__main__':
+    threading.Thread(target=run_flask).start()
     threading.Thread(target=run_scheduler).start()
 
     print("Bot is live and waiting to send picks at 11:00 AM daily..y.")
+
+    # Optional: call this if needed
+    # send_json_with_curl()
