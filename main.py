@@ -147,3 +147,4 @@ if __name__ == '__main__':
 
     # If you ever want to fire off the cURL demo on startup, uncomment:
     # send_json_with_curl()
+send_daily_picks()
