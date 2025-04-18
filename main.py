@@ -25,7 +25,12 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return "AI Parlay Bot is running"
-
+    
+@app.route('/test')
+def test_send():
+    send_daily_picks()
+    return "Test picks sent!"
+    
 def send_daily_picks():
     """Fetch odds, pick 3 games at random, and send both single picks and a parlay."""
     now = datetime.now()
