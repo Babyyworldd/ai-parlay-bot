@@ -143,8 +143,7 @@ if __name__ == '__main__':
     threading.Thread(target=run_flask,    daemon=True).start()
     threading.Thread(target=run_scheduler, daemon=True).start()
 
-    print("🤖 Bot is live; waiting for the 11:00 AM pick job…")
-send_daily_picks()
+schedule.every().day.at("15:00").do(send_daily_picks)
 
     # If you ever want to fire off the cURL demo on startup, uncomment:
     # send_json_with_curl()
