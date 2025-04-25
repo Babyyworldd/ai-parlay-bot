@@ -5,4 +5,3 @@ schedule
 python-dotenv
 gunicorn
 pytz
-pip install gunicorn
