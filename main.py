@@ -148,4 +148,4 @@ if __name__ == '__main__':
     threading.Thread(target=run_telegram_bot, daemon=True).start()
 
     while True:
-        time.sleep(1
+        time.sleep(1)
