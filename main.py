@@ -1,4 +1,3 @@
-
             picks.append({
                 "matchup":    f"{away} vs {home}",
                 "pick":       pick["name"],
