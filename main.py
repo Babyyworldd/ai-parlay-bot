@@ -5,12 +5,14 @@ import requests
 import random
 from datetime import datetime
 from pytz import timezone
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from flask import Flask
 
 # Load environment variables
 bot_token = os.getenv("BOT_TOKEN")
-chat_id   = os.getenv("CHAT_ID")
-api_key   = os.getenv("API_KEY")
+chat_id = os.getenv("CHAT_ID")
+api_key = os.getenv("API_KEY")
 
 # Constants
 odds_url = (
@@ -20,30 +22,23 @@ odds_url = (
 send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 eastern = timezone('US/Eastern')
 
-# Flask app for keep-alive or testing
+# Flask (not used in worker, just here in case)
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "AI Parlay Bot is running"
-
-@app.route('/test')
-def test_send():
-    send_daily_picks()
-    return "Test picks sent!"
+    return "AI Parlay Bot is alive"
 
 def send_daily_picks():
-    """Fetch odds, pick 3 games, and send picks and parlay."""
     now = datetime.now(eastern)
     print(f"[{now.isoformat()}] Sending AI picks…")
 
-    response = requests.get(odds_url)
-    print("ODDS API STATUS:", response.status_code)
-
     try:
+        response = requests.get(odds_url)
+        print("ODDS API STATUS:", response.status_code)
         games = response.json()
     except Exception as e:
-        print("❌ Error parsing JSON from odds API:", e)
+        print("❌ Error fetching or parsing odds API:", e)
         return
 
     picks = []
@@ -101,9 +96,24 @@ def send_daily_picks():
             'parse_mode': 'Markdown'
         })
 
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+# Telegram commands
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    welcome_msg = (
+        "Welcome to *Hardrock Bandits AI Picks!* ⚾️\n\n"
+        "You’ll get our best daily AI-generated parlays and picks here.\n"
+        "Stay locked in!"
+    )
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_msg, parse_mode="Markdown")
+
+async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    send_daily_picks()
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Test picks sent!")
+
+def run_telegram_bot():
+    app = ApplicationBuilder().token(bot_token).build()
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("test", test_command))
+    app.run_polling()
 
 def run_scheduler():
     has_run_today = False
@@ -122,10 +132,8 @@ def run_scheduler():
         time.sleep(60)
 
 if __name__ == '__main__':
-    threading.Thread(target=run_flask, daemon=True).start()
     threading.Thread(target=run_scheduler, daemon=True).start()
+    threading.Thread(target=run_telegram_bot, daemon=True).start()
 
-    # Keep main thread alive
     while True:
         time.sleep(1)
-        
