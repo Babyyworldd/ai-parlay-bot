@@ -120,7 +120,8 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await app.initialize()
         await app.start()
         print("✅ Telegram bot is running")
-        await app.run_polling()
+        await app.start_polling()
+        await asyncio.Event().wait()  # Keeps polling alive
 
     loop.run_until_complete(start_bot())
 
