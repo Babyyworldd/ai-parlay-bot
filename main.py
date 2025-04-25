@@ -134,6 +134,6 @@ def run_scheduler():
 if __name__ == '__main__':
     threading.Thread(target=run_scheduler, daemon=True).start()
     threading.Thread(target=run_telegram_bot, daemon=True).start()
-
+    
     while True:
         time.sleep(1)
