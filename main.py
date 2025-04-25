@@ -10,12 +10,14 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from flask import Flask
 
-# Load environment variables (and sanitize them)
+print("✅ main.py starting...")
+
+# Load environment variables and strip to avoid hidden newlines
 bot_token = os.getenv("BOT_TOKEN", "").strip()
 chat_id = os.getenv("CHAT_ID", "").strip()
 api_key = os.getenv("API_KEY", "").strip()
 
-# Odds API and timezone config
+# URLs and timezone
 odds_url = (
     f'https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/'
     f'?regions=us&markets=h2h&oddsFormat=decimal&apiKey={api_key}'
@@ -23,13 +25,13 @@ odds_url = (
 send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 eastern = timezone('US/Eastern')
 
-# Optional Flask (if you want a keep-alive route later)
+# Optional Flask route
 app = Flask(__name__)
 @app.route('/')
 def home():
     return "AI Parlay Bot is alive"
 
-# AI Picks Logic
+# Send daily AI picks
 def send_daily_picks():
     now = datetime.now(eastern)
     print(f"[{now.isoformat()}] Sending AI picks…")
@@ -94,8 +96,9 @@ def send_daily_picks():
             'parse_mode': 'Markdown'
         })
 
-# Telegram command: /start
+# Telegram: /start command
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("✅ /start command received")
     welcome_msg = (
         "Welcome to *Hardrock Bandits AI Picks!* ⚾️\n\n"
         "You’ll get our best daily AI-generated parlays and picks here.\n"
@@ -103,30 +106,33 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_msg, parse_mode="Markdown")
 
-# Telegram command: /test
+# Telegram: /test command
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("✅ /test command received")
     send_daily_picks()
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Test picks sent!")
 
-# Start Telegram bot (v20+ safe inside a thread)
+# Telegram bot runner
 def run_telegram_bot():
-    print("✅ Telegram bot starting...")
+    print("✅ run_telegram_bot starting...")
     asyncio.set_event_loop(asyncio.new_event_loop())
     loop = asyncio.get_event_loop()
 
     async def start_bot():
+        print("✅ Inside start_bot async function...")
         app = ApplicationBuilder().token(bot_token).build()
         app.add_handler(CommandHandler("start", start_command))
         app.add_handler(CommandHandler("test", test_command))
         await app.initialize()
         await app.start()
         print("✅ Telegram bot is running")
-        await asyncio.Event().wait()  # Keeps the thread alive
+        await asyncio.Event().wait()
 
     loop.run_until_complete(start_bot())
 
-# Daily scheduler
+# Scheduler runner
 def run_scheduler():
+    print("✅ run_scheduler started")
     has_run_today = False
     while True:
         now = datetime.now(eastern)
@@ -142,8 +148,9 @@ def run_scheduler():
 
         time.sleep(60)
 
-# Run both threads
+# Entry point
 if __name__ == '__main__':
+    print("✅ Starting both threads...")
     threading.Thread(target=run_scheduler, daemon=True).start()
     threading.Thread(target=run_telegram_bot, daemon=True).start()
 
