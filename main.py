@@ -10,10 +10,10 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from flask import Flask
 
-# Load environment variables
-bot_token = os.getenv("BOT_TOKEN")
-chat_id = os.getenv("CHAT_ID")
-api_key = os.getenv("API_KEY")
+# Load and strip environment variables
+bot_token = os.getenv("BOT_TOKEN", "").strip()
+chat_id = os.getenv("CHAT_ID", "").strip()
+api_key = os.getenv("API_KEY", "").strip()
 
 # Constants
 odds_url = (
@@ -23,13 +23,13 @@ odds_url = (
 send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 eastern = timezone('US/Eastern')
 
-# Flask app (not used here but included for completeness)
+# Optional Flask (for future uptime pings)
 app = Flask(__name__)
-
 @app.route('/')
 def home():
     return "AI Parlay Bot is alive"
 
+# Core pick generator
 def send_daily_picks():
     now = datetime.now(eastern)
     print(f"[{now.isoformat()}] Sending AI picks…")
@@ -61,11 +61,9 @@ def send_daily_picks():
 
             if len(picks) == 3:
                 break
-
         except (IndexError, KeyError):
             continue
 
-    # Send each pick
     for p in picks:
         msg = (
             "⚾️ *AI MLB Pick*\n\n"
@@ -81,7 +79,6 @@ def send_daily_picks():
             'parse_mode': 'Markdown'
         })
 
-    # Parlay
     if len(picks) == 3:
         parlay_legs = [f"⚾️ {p['pick']} ({p['odds']})" for p in picks]
         parlay_odds = round((picks[0]['odds'] * picks[1]['odds'] * picks[2]['odds']) - 1, 2)
@@ -110,6 +107,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     send_daily_picks()
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Test picks sent!")
 
+# Start bot properly from thread
 def run_telegram_bot():
     print("✅ Telegram bot starting...")
     asyncio.set_event_loop(asyncio.new_event_loop())
@@ -122,11 +120,11 @@ def run_telegram_bot():
         await app.initialize()
         await app.start()
         print("✅ Telegram bot is running")
-        await app.updater.start_polling()
-        await app.updater.wait_until_closed()
+        await app.run_polling()
 
     loop.run_until_complete(start_bot())
 
+# Daily scheduler
 def run_scheduler():
     has_run_today = False
     while True:
@@ -143,6 +141,7 @@ def run_scheduler():
 
         time.sleep(60)
 
+# Run both scheduler + bot
 if __name__ == '__main__':
     threading.Thread(target=run_scheduler, daemon=True).start()
     threading.Thread(target=run_telegram_bot, daemon=True).start()
