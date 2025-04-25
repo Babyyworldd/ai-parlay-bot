@@ -10,12 +10,12 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from flask import Flask
 
-# Load and strip environment variables
+# Load environment variables (and sanitize them)
 bot_token = os.getenv("BOT_TOKEN", "").strip()
 chat_id = os.getenv("CHAT_ID", "").strip()
 api_key = os.getenv("API_KEY", "").strip()
 
-# Constants
+# Odds API and timezone config
 odds_url = (
     f'https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/'
     f'?regions=us&markets=h2h&oddsFormat=decimal&apiKey={api_key}'
@@ -23,13 +23,13 @@ odds_url = (
 send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 eastern = timezone('US/Eastern')
 
-# Optional Flask (for future uptime pings)
+# Optional Flask (if you want a keep-alive route later)
 app = Flask(__name__)
 @app.route('/')
 def home():
     return "AI Parlay Bot is alive"
 
-# Core pick generator
+# AI Picks Logic
 def send_daily_picks():
     now = datetime.now(eastern)
     print(f"[{now.isoformat()}] Sending AI picks…")
@@ -94,7 +94,7 @@ def send_daily_picks():
             'parse_mode': 'Markdown'
         })
 
-# Telegram commands
+# Telegram command: /start
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "Welcome to *Hardrock Bandits AI Picks!* ⚾️\n\n"
@@ -103,11 +103,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_msg, parse_mode="Markdown")
 
+# Telegram command: /test
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     send_daily_picks()
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Test picks sent!")
 
-# Start bot properly from thread
+# Start Telegram bot (v20+ safe inside a thread)
 def run_telegram_bot():
     print("✅ Telegram bot starting...")
     asyncio.set_event_loop(asyncio.new_event_loop())
@@ -120,8 +121,7 @@ def run_telegram_bot():
         await app.initialize()
         await app.start()
         print("✅ Telegram bot is running")
-        await app.start_polling()
-        await asyncio.Event().wait()  # Keeps polling alive
+        await asyncio.Event().wait()  # Keeps the thread alive
 
     loop.run_until_complete(start_bot())
 
@@ -142,7 +142,7 @@ def run_scheduler():
 
         time.sleep(60)
 
-# Run both scheduler + bot
+# Run both threads
 if __name__ == '__main__':
     threading.Thread(target=run_scheduler, daemon=True).start()
     threading.Thread(target=run_telegram_bot, daemon=True).start()
