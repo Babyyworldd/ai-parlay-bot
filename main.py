@@ -108,7 +108,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Test picks sent!")
 
 # Start bot properly from thread
-def run_telegram_bot():
+    def run_telegram_bot():
     print("✅ Telegram bot starting...")
     asyncio.set_event_loop(asyncio.new_event_loop())
     loop = asyncio.get_event_loop()
