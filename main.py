@@ -8,6 +8,7 @@ from pytz import timezone
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from flask import Flask
+import asyncio
 
 # Load environment variables
 bot_token = os.getenv("BOT_TOKEN")
