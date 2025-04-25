@@ -3,12 +3,12 @@ import time
 import threading
 import requests
 import random
+import asyncio
 from datetime import datetime
 from pytz import timezone
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from flask import Flask
-import asyncio
 
 # Load environment variables
 bot_token = os.getenv("BOT_TOKEN")
@@ -23,7 +23,7 @@ odds_url = (
 send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 eastern = timezone('US/Eastern')
 
-# Flask (not used in worker, just here in case)
+# Flask app (not used here but included for completeness)
 app = Flask(__name__)
 
 @app.route('/')
@@ -113,10 +113,19 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def run_telegram_bot():
     print("✅ Telegram bot starting...")
     asyncio.set_event_loop(asyncio.new_event_loop())
-    app = ApplicationBuilder().token(bot_token).build()
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("test", test_command))
-    app.run_polling()
+    loop = asyncio.get_event_loop()
+
+    async def start_bot():
+        app = ApplicationBuilder().token(bot_token).build()
+        app.add_handler(CommandHandler("start", start_command))
+        app.add_handler(CommandHandler("test", test_command))
+        await app.initialize()
+        await app.start()
+        print("✅ Telegram bot is running")
+        await app.updater.start_polling()
+        await app.updater.wait_until_closed()
+
+    loop.run_until_complete(start_bot())
 
 def run_scheduler():
     has_run_today = False
@@ -137,6 +146,6 @@ def run_scheduler():
 if __name__ == '__main__':
     threading.Thread(target=run_scheduler, daemon=True).start()
     threading.Thread(target=run_telegram_bot, daemon=True).start()
-    
+
     while True:
         time.sleep(1)
