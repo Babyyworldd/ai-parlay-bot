@@ -12,12 +12,12 @@ from flask import Flask
 
 print("✅ main.py starting...")
 
-# Load environment variables and strip to avoid hidden newlines
+# Load environment variables and strip spaces/newlines
 bot_token = os.getenv("BOT_TOKEN", "").strip()
 chat_id = os.getenv("CHAT_ID", "").strip()
 api_key = os.getenv("API_KEY", "").strip()
 
-# URLs and timezone
+# Odds API URL and timezone
 odds_url = (
     f'https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/'
     f'?regions=us&markets=h2h&oddsFormat=decimal&apiKey={api_key}'
@@ -25,13 +25,18 @@ odds_url = (
 send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 eastern = timezone('US/Eastern')
 
-# Optional Flask route
+# Flask server setup
 app = Flask(__name__)
+
 @app.route('/')
 def home():
-    return "AI Parlay Bot is alive"
+    return "✅ AI Parlay Bot is Alive and Running!"
 
-# Send daily AI picks
+@app.route('/health')
+def health():
+    return {"status": "ok", "message": "Bot is healthy"}, 200
+
+# Function to send daily AI picks
 def send_daily_picks():
     now = datetime.now(eastern)
     print(f"[{now.isoformat()}] Sending AI picks…")
@@ -96,7 +101,7 @@ def send_daily_picks():
             'parse_mode': 'Markdown'
         })
 
-# Telegram: /start command
+# Telegram /start command
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("✅ /start command received")
     welcome_msg = (
@@ -106,13 +111,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_msg, parse_mode="Markdown")
 
-# Telegram: /test command
+# Telegram /test command
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("✅ /test command received")
     send_daily_picks()
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Test picks sent!")
 
-# Telegram bot runner
+# Function to run Telegram bot
 def run_telegram_bot():
     print("✅ run_telegram_bot starting...")
     asyncio.set_event_loop(asyncio.new_event_loop())
@@ -130,7 +135,7 @@ def run_telegram_bot():
 
     loop.run_until_complete(start_bot())
 
-# Scheduler runner
+# Function to run daily scheduler
 def run_scheduler():
     print("✅ run_scheduler started")
     has_run_today = False
@@ -148,11 +153,12 @@ def run_scheduler():
 
         time.sleep(60)
 
-# Entry point
+# MAIN entry point
 if __name__ == '__main__':
-    print("✅ Starting both threads...")
+    print("✅ Starting all services...")
     threading.Thread(target=run_scheduler, daemon=True).start()
     threading.Thread(target=run_telegram_bot, daemon=True).start()
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000))), daemon=True).start()
 
     while True:
         time.sleep(1)
