@@ -22,25 +22,28 @@ odds_url = (
 send_url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
 eastern = timezone('US/Eastern')
 
-# Flask app
+# Flask App
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "AI Parlay Bot is alive"
 
-# Main Daily Picks
+# Memory to store VIP picks for Recap
+last_vip_pick = None
+last_vip_parlay = None
+
+# MAIN Daily Picks
 def send_daily_picks():
-    """Fetch odds, pick 3 games, and send picks and parlay with max hype format."""
     now = datetime.now(eastern)
-    print(f"[{now.isoformat()}] Sending AI picks…")
+    print(f"[{now.isoformat()}] Sending Daily AI Picks...")
 
     try:
         response = requests.get(odds_url)
         print("ODDS API STATUS:", response.status_code)
         games = response.json()
     except Exception as e:
-        print("❌ Error fetching or parsing odds API:", e)
+        print("❌ Error fetching/parsing odds API:", e)
         return
 
     picks = []
@@ -62,11 +65,9 @@ def send_daily_picks():
 
             if len(picks) == 3:
                 break
-
         except (IndexError, KeyError):
             continue
 
-    # Send each pick individually
     for idx, p in enumerate(picks, start=1):
         msg = (
             "⛔⛔⛔⛔⛔⛔⛔⛔\n"
@@ -90,7 +91,6 @@ def send_daily_picks():
             'parse_mode': 'Markdown'
         })
 
-    # Send parlay
     if len(picks) == 3:
         parlay_legs = [f"{i+1}️⃣ _{p['pick']} ({p['odds']})_" for i, p in enumerate(picks)]
         parlay_odds = round((picks[0]['odds'] * picks[1]['odds'] * picks[2]['odds']) - 1, 2)
@@ -113,50 +113,10 @@ def send_daily_picks():
             'parse_mode': 'Markdown'
         })
 
-# VIP Pick Manual Command
-async def vip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a manual VIP pick."""
-    now = datetime.now(eastern)
-    print(f"[{now.isoformat()}] VIP manual pick triggered...")
-
-    try:
-        response = requests.get(odds_url)
-        games = response.json()
-    except Exception as e:
-        print("❌ Error fetching VIP pick:", e)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="❌ Error fetching VIP pick.")
-        return
-
-    for game in games:
-        try:
-            home = game["home_team"]
-            away = game["away_team"]
-            start = game["commence_time"]
-            outcomes = game["bookmakers"][0]["markets"][0]["outcomes"]
-            pick = random.choice(outcomes)
-
-            vip_msg = (
-                "💎 *HARDROCK BANDITS VIP PICK* 💎\n\n"
-                f"🏟️ *Matchup:*\n_{away} vs {home}_\n\n"
-                f"✅ *Pick:*\n_{pick['name']}_\n\n"
-                f"💰 *Odds:*\n_{round(pick['price'],2)}_\n\n"
-                f"🔥 *Confidence:*\n_{random.randint(85, 95)}%_\n\n"
-                f"🚀 *Start Time:*\n_{datetime.fromisoformat(start).strftime('%I:%M %p EST')}_\n\n"
-                "---\n"
-                "🔒 _VIP Access Only — Powered by AI_\n"
-                "---"
-            )
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=vip_msg, parse_mode="Markdown")
-            break
-
-        except (IndexError, KeyError):
-            continue
-
-# VIP Auto Drop - Pick
+# VIP Pick (Auto and Manual)
 def send_vip_pick():
-    """Send a daily VIP pick."""
-    print(f"[{datetime.now(eastern).isoformat()}] Sending daily VIP pick...")
-    send_url_vip = send_url
+    global last_vip_pick
+    print(f"[{datetime.now(eastern).isoformat()}] Sending VIP Pick...")
 
     try:
         response = requests.get(odds_url)
@@ -184,20 +144,19 @@ def send_vip_pick():
                 "🔒 _VIP Access Only — Powered by AI_\n"
                 "---"
             )
-            requests.post(send_url_vip, data={
+            last_vip_pick = vip_msg
+            requests.post(send_url, data={
                 'chat_id': chat_id,
                 'text': vip_msg,
                 'parse_mode': 'Markdown'
             })
             break
-
         except (IndexError, KeyError):
             continue
 
-# VIP Auto Drop - Mini 2 Leg Parlay
 def send_vip_parlay():
-    """Send a daily VIP 2-leg parlay."""
-    print(f"[{datetime.now(eastern).isoformat()}] Sending daily VIP parlay...")
+    global last_vip_parlay
+    print(f"[{datetime.now(eastern).isoformat()}] Sending VIP Mini Parlay...")
 
     try:
         response = requests.get(odds_url)
@@ -222,7 +181,6 @@ def send_vip_parlay():
 
             if len(picks) == 2:
                 break
-
         except (IndexError, KeyError):
             continue
 
@@ -238,13 +196,37 @@ def send_vip_parlay():
             "🔒 _Exclusive 2-Leg Parlay for VIPs_\n"
             "---"
         )
+        last_vip_parlay = parlay_msg
         requests.post(send_url, data={
             'chat_id': chat_id,
             'text': parlay_msg,
             'parse_mode': 'Markdown'
         })
 
-# Telegram Bot Setup
+def send_vip_recap():
+    print(f"[{datetime.now(eastern).isoformat()}] Sending VIP Recap...")
+
+    recap_msg = "💎 *HARDROCK BANDITS VIP DAILY RECAP* 💎\n\n"
+
+    if last_vip_pick:
+        recap_msg += "✅ *VIP Pick Sent:*\n\n" + last_vip_pick.split("---")[0] + "\n\n"
+    else:
+        recap_msg += "⚠️ *No VIP pick recorded today.*\n\n"
+
+    if last_vip_parlay:
+        recap_msg += "✅ *VIP Mini Parlay Sent:*\n\n" + last_vip_parlay.split("---")[0] + "\n\n"
+    else:
+        recap_msg += "⚠️ *No VIP mini parlay recorded today.*\n\n"
+
+    recap_msg += "---\n🔒 _Thank you for riding with Hardrock Bandits VIP!_\n---"
+
+    requests.post(send_url, data={
+        'chat_id': chat_id,
+        'text': recap_msg,
+        'parse_mode': 'Markdown'
+    })
+
+# Telegram Commands
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Welcome to Hardrock Bandits AI Picks!")
 
@@ -252,6 +234,11 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     send_daily_picks()
     await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ Test picks sent!")
 
+async def vip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    send_vip_pick()
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="✅ VIP pick dropped!")
+
+# Bot and Scheduler
 def run_telegram_bot():
     app = ApplicationBuilder().token(bot_token).build()
     app.add_handler(CommandHandler("start", start_command))
@@ -259,7 +246,6 @@ def run_telegram_bot():
     app.add_handler(CommandHandler("vip", vip_command))
     app.run_polling()
 
-# Scheduler
 def run_scheduler():
     has_run_today = False
     has_run_vip_today = False
@@ -277,13 +263,15 @@ def run_scheduler():
             send_vip_parlay()
             has_run_vip_today = True
 
+        if current_time == "23:59":
+            send_vip_recap()
+
         if current_time == "00:01":
             has_run_today = False
             has_run_vip_today = False
 
         time.sleep(60)
 
-# Run App
 if __name__ == '__main__':
     threading.Thread(target=run_scheduler, daemon=True).start()
     threading.Thread(target=run_telegram_bot, daemon=True).start()
