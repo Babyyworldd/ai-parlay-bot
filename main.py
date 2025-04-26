@@ -8,6 +8,25 @@ import nest_asyncio
 from flask import Flask
 from telegram import Bot
 from telegram.ext import Application, CommandHandler
+import gspread
+import json
+import os
+from google.oauth2.service_account import Credentials
+
+def connect_to_google_sheets():
+    creds_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+    if not creds_json:
+        raise Exception("Missing Google credentials!")
+
+    creds_dict = json.loads(creds_json)
+
+    creds = Credentials.from_service_account_info(
+        creds_dict,
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    )
+
+    client = gspread.authorize(creds)
+    return client
 
 # Telegram bot token and chat IDs
 BOT_TOKEN = os.getenv('BOT_TOKEN')
