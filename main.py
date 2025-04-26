@@ -7,41 +7,35 @@ import schedule
 import nest_asyncio
 from flask import Flask
 from telegram import Bot
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application
 import gspread
 import json
-import os
 from google.oauth2.service_account import Credentials
+from datetime import datetime
 
 def connect_to_google_sheets():
     creds_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
     if not creds_json:
         raise Exception("Missing Google credentials!")
-
     creds_dict = json.loads(creds_json)
-
     creds = Credentials.from_service_account_info(
         creds_dict,
         scopes=["https://www.googleapis.com/auth/spreadsheets"]
     )
-
     client = gspread.authorize(creds)
     return client
 
-# Telegram bot token and chat IDs
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-VIP_CHAT_ID = os.getenv('VIP_CHAT_ID')  # Your VIP group ID
-FREE_CHAT_ID = os.getenv('FREE_CHAT_ID')  # Your free group ID
+VIP_CHAT_ID = os.getenv('VIP_CHAT_ID')
+FREE_CHAT_ID = os.getenv('FREE_CHAT_ID')
+SHEET_ID = '1-3gYwy14lTqZ3CWiB-2Np1RDeX7cgLS2rvHrlonXW1Y'
 
-# Flask app
 app = Flask(__name__)
 
-# Setup logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# Initialize bot application
 bot_app = Application.builder().token(BOT_TOKEN).build()
 
 def send_text_message(chat_id, message):
@@ -83,15 +77,21 @@ def send_vip_recap():
         "Let's keep building the bankroll!"
     )
     send_text_message(VIP_CHAT_ID, message)
+    write_vip_results_to_sheet(2, 1)  # Example: 2 wins, 1 loss
+
+def write_vip_results_to_sheet(wins, losses):
+    try:
+        client = connect_to_google_sheets()
+        sheet = client.open_by_key(SHEET_ID).sheet1
+        today = datetime.now().strftime("%Y-%m-%d")
+        sheet.append_row([today, wins, losses])
+        print("✅ VIP results written to Google Sheet!")
+    except Exception as e:
+        logging.error(f"Failed to write to Google Sheets: {e}")
 
 def schedule_tasks():
-    # Daily VIP Drop at 12 PM EST
     schedule.every().day.at("12:00").do(generate_daily_vip)
-
-    # Mini VIP parlay drop at 12:30 PM EST
     schedule.every().day.at("12:30").do(generate_vip_mini_parlay)
-
-    # VIP Recap at 11:30 PM EST
     schedule.every().day.at("23:30").do(send_vip_recap)
 
 def run_scheduler():
